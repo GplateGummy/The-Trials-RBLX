@@ -283,7 +283,6 @@ if Arena and table.find(Ids["Phase0"], tostring(game.PlaceId)) then
 	local InfoText = [[After a round, all roles are revealed. However, the role images are already preloaded. This means if someone stands on a circle, the screen can be scanned to identify their role.]]
 	Phase0Tab:CreateLabel("How does this work?")
 	Phase0Tab:CreateLabel(InfoText)
-	Phase0Tab:CreateLabel("Also, you must reset roles every round, or it will use the roles from the previous round.")
 
 	Phase0Tab:CreateButton({
 		Name = "Rescan Roles",
@@ -292,6 +291,7 @@ if Arena and table.find(Ids["Phase0"], tostring(game.PlaceId)) then
 		end
 	})
 
+	Phase0Tab:CreateLabel("Also, you must reset roles every round, or it will use the roles from the previous round.")
 
 	Phase0Tab:CreateButton({
 		Name = "Reset Roles",
@@ -639,98 +639,143 @@ if TrialParts and tostring(game.PlaceId) == Ids["Phase1"] then
 
 			local Highlights = {}
 			local Titles = {}
+			local Connections = {}
+			local Enabled = false
 
-			local function EnableKeyEsp()
-				for _, Crate in ipairs(AllCrates) do
+			local function ClearESP()
+				for i = #Highlights, 1, -1 do
+					local highlight = Highlights[i]
+					if highlight and highlight.Parent then
+						pcall(function() highlight:Destroy() end)
+					end
+					Highlights[i] = nil
+				end
+
+				for i = #Titles, 1, -1 do
+					local title = Titles[i]
+					if title and title.Parent then
+						pcall(function() title:Destroy() end)
+					end
+					Titles[i] = nil
+				end
+
+				for i = #Connections, 1, -1 do
+					if Connections[i] then
+						pcall(function() Connections[i]:Disconnect() end)
+					end
+					Connections[i] = nil
+				end
+			end
+
+			local function ProcessCrate(Crate)
+				if not Crate or not Crate.Parent then return end
+
+				local success, result = pcall(function()
+					local Lid = Crate:FindFirstChild("Lid")
+					if not Lid then return end
+
+					local ItemSpawn = Lid:FindFirstChild("ItemSpawn")
+					if not ItemSpawn then return end
+
+					local Item = nil
+					local ItemName = nil
+					local ItemColor = nil
+
+					for _, Object in ipairs(Lid:GetChildren()) do
+						if Object:IsA("Model") and Object.Parent then
+							if Object.Name == "Gun" then
+								Item = Object
+								ItemName = "Gun"
+								ItemColor = "Red"
+								break
+							elseif Object.Name == "StarKey" then
+								Item = Object
+								ItemName = "Star Key"
+								ItemColor = "Yellow"
+								break
+							elseif string.find(Object.Name:lower(), "zel") then
+								Item = Object
+								ItemName = (Object.Name:gsub("Zel", "") .. " Key")
+								ItemColor = "Green"
+								break
+							end
+						end
+					end
+
+					if Item and ItemName and ItemColor and Item.Parent then
+						local highlight = AddHighlight(Item, ItemColor)
+						local title = AddTitle(ItemSpawn, ItemName)
+
+						if highlight then
+							table.insert(Highlights, highlight)
+						end
+						if title then
+							table.insert(Titles, title)
+						end
+					end
+				end)
+			end
+
+			local function SetupCrateListener(Crate)
+				if not Crate then return end
+
+				local success, connection = pcall(function()
 					local Lid = Crate:FindFirstChild("Lid")
 					if Lid then
-						local ItemSpawn = Lid:FindFirstChild("ItemSpawn")
-						if ItemSpawn then
-							local Item = nil
-							local ItemName = nil
-							local ItemColor = nil
-
-							for _, Object in ipairs(Lid:GetChildren()) do
-								if Object:IsA("Model") then
-									if Object.Name == "Gun" then
-										Item = Object
-										ItemName = "Gun"
-										ItemColor = "Red"
-										break
-									end
-									if Object.Name == "StarKey" then
-										Item = Object
-										ItemName = "Star Key"
-										ItemColor = "Yellow"
-										break
-									end
-									if string.find(Object.Name:lower(), "zel") then
-										Item = Object
-										ItemName = (Object.Name:gsub("Zel", "") .. " Key")
-										ItemColor = "Green"
-										break
-									end
-								end
+						return Lid.ChildAdded:Connect(function(child)
+							if Enabled and child:IsA("Model") then
+								task.wait(0.1)
+								ProcessCrate(Crate)
 							end
+						end)
+					end
+				end)
 
+				if success and connection then
+					table.insert(Connections, connection)
+				end
+			end
 
-							if Item and ItemName and ItemColor then
-								local Highlight = AddHighlight(Item, ItemColor)
-								local Title = AddTitle(ItemSpawn, ItemName)
+			local function EnableKeyEsp()
+				if Enabled then return end
 
-								if Highlight then
-									table.insert(Highlights, Highlight)
-								end
-								if Title then
-									table.insert(Titles, Title)
-								end
-							end
+				ClearESP()
+				Enabled = true
+
+				task.wait(0.2)
+
+				if AllCrates then
+					for _, Crate in ipairs(AllCrates) do
+						if Crate and Crate.Parent then
+							ProcessCrate(Crate)
+							SetupCrateListener(Crate)
 						end
 					end
 				end
 			end
 
-			local function DisabledKeyEsp()
-				for _, Highlight in ipairs(Highlights) do
-					if Highlight and Highlight.Parent then
-						pcall(function()
-							Highlight:Destroy()
-						end)
-					end
-				end
-				for _, Title in ipairs(Titles) do
-					if Title and Title.Parent then
-						pcall(function()
-							Title:Destroy()
-						end)
-					end
-				end
-			end
+			local function DisableKeyEsp()
+				if not Enabled then return end
 
-			local Enabled = false
+				Enabled = false
+				ClearESP()
+			end
 
 			Phase1Tab:CreateButton({
 				Name = "Enable Key ESP",
 				Callback = function()
-					if not Enabled then
-						Enabled = true
-						EnableKeyEsp()
-					end
+					EnableKeyEsp()
 				end
 			})
 
 			Phase1Tab:CreateButton({
 				Name = "Disable Key ESP",
 				Callback = function()
-					if Enabled then
-						Enabled = false
-						DisabledKeyEsp()
-					end
+					DisableKeyEsp()
 				end
 			})
 		end
 	end
-
 
 	local Section = Phase1Tab:CreateSection("Trial 3 - Horse Race")
 
@@ -1063,20 +1108,23 @@ if TrialParts and tostring(game.PlaceId) == Ids["Phase1"] then
 				for _, KeyModel in ipairs(Workspace:GetChildren()) do
 					if KeyModel:IsA("Model") and KeyModel.Name == "IceKeyZel" then
 						local ClickPart = KeyModel:FindFirstChild("ClickPart")
+
 						if ClickPart and ClickPart:IsA("MeshPart") then
 							local distance = (ClickPart.Position - TargetPosition).Magnitude
-							if distance <= 1 then
+
+							if distance <= 2 then
 								local ClickDetector = ClickPart:FindFirstChildWhichIsA("ClickDetector")
+
 								if ClickDetector then
-									fireclickdetector(ClickDetector)
-								else
+									pcall(function()
+										fireclickdetector(ClickDetector)
+									end)
+									return
 								end
-								return 
 							end
 						end
 					end
 				end
-
 			end
 		})
 
@@ -1088,20 +1136,23 @@ if TrialParts and tostring(game.PlaceId) == Ids["Phase1"] then
 				for _, KeyModel in ipairs(Workspace:GetChildren()) do
 					if KeyModel:IsA("Model") and KeyModel.Name == "IceKeyZel" then
 						local ClickPart = KeyModel:FindFirstChild("ClickPart")
+
 						if ClickPart and ClickPart:IsA("MeshPart") then
 							local distance = (ClickPart.Position - TargetPosition).Magnitude
-							if distance <= 1 then
+
+							if distance <= 2 then
 								local ClickDetector = ClickPart:FindFirstChildWhichIsA("ClickDetector")
+
 								if ClickDetector then
-									fireclickdetector(ClickDetector)
-								else
+									pcall(function()
+										fireclickdetector(ClickDetector)
+									end)
+									return
 								end
-								return 
 							end
 						end
 					end
 				end
-
 			end
 		})
 
@@ -1113,20 +1164,23 @@ if TrialParts and tostring(game.PlaceId) == Ids["Phase1"] then
 				for _, KeyModel in ipairs(Workspace:GetChildren()) do
 					if KeyModel:IsA("Model") and KeyModel.Name == "IceKeyZel" then
 						local ClickPart = KeyModel:FindFirstChild("ClickPart")
+
 						if ClickPart and ClickPart:IsA("MeshPart") then
 							local distance = (ClickPart.Position - TargetPosition).Magnitude
-							if distance <= 1 then
+
+							if distance <= 2 then
 								local ClickDetector = ClickPart:FindFirstChildWhichIsA("ClickDetector")
+
 								if ClickDetector then
-									fireclickdetector(ClickDetector)
-								else
+									pcall(function()
+										fireclickdetector(ClickDetector)
+									end)
+									return
 								end
-								return 
 							end
 						end
 					end
 				end
-
 			end
 		})
 
