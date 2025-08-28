@@ -86,6 +86,7 @@ local Phase0Tab = Window:CreateTab("Phase 0")
 local Arena = Workspace:FindFirstChild("Arena")
 
 if Arena and table.find(Ids["Phase0"], tostring(game.PlaceId)) then
+
 	local Section = Phase0Tab:CreateSection("Butterfly Blossom Skull")
 
 	local RoleImageIDs = {
@@ -104,7 +105,7 @@ if Arena and table.find(Ids["Phase0"], tostring(game.PlaceId)) then
 	local StatusLabel = nil
 
 	local function GetRoleFromColor(Color)
-		for Role, RoleColor in ipairs(RoleColors) do
+		for Role, RoleColor in pairs(RoleColors) do
 			if Color:ToHex() == RoleColor:ToHex() then
 				return Role
 			end
@@ -113,19 +114,28 @@ if Arena and table.find(Ids["Phase0"], tostring(game.PlaceId)) then
 	end
 
 	local function CreateOrUpdateRoleTag(Character, Role)
+
 		local Head = Character:FindFirstChild("Head")
 		local RoleImageID = RoleImageIDs[Role]
-		if not Head or not RoleImageID then return end
+
+		if not Head then
+			return
+		end
+
+		if not RoleImageID then
+			return
+		end
 
 		local ExistingTag = Head:FindFirstChild("RoleTag")
 		if not ExistingTag then
+
 			local RoleTag = Instance.new("BillboardGui")
 			RoleTag.Name = "RoleTag"
 			RoleTag.Active = true
 			RoleTag.AlwaysOnTop = true
-			RoleTag.MaxDistance = 30
+			RoleTag.MaxDistance = 40
 			RoleTag.Size = UDim2.new(2.2, 0, 2.2, 0)
-			RoleTag.StudsOffset = Vector3.new(0, 3, 0)
+			RoleTag.StudsOffset = Vector3.new(0, 3.5, 0)
 			RoleTag.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 			RoleTag.Parent = Head
 
@@ -134,11 +144,14 @@ if Arena and table.find(Ids["Phase0"], tostring(game.PlaceId)) then
 			RoleImage.Image = RoleImageID
 			RoleImage.ScaleType = Enum.ScaleType.Fit
 			RoleImage.BackgroundTransparency = 1
+			RoleImage.ImageTransparency = 0.12
 			RoleImage.BorderSizePixel = 0
 			RoleImage.Size = UDim2.new(1, 0, 1, 0)
 			RoleImage.Parent = RoleTag
+
 		else
 			local RoleImage = ExistingTag:FindFirstChild("RoleImage")
+
 			if RoleImage then
 				RoleImage.Image = RoleImageID
 				RoleImage.Visible = true
@@ -147,18 +160,31 @@ if Arena and table.find(Ids["Phase0"], tostring(game.PlaceId)) then
 	end
 
 	local function OnPlayerFrameAdded(PlayerFrame)
-		if not Enabled then return end
-		if not tonumber(PlayerFrame.Name) then return end
+
+		if not Enabled then
+			return
+		end
+
+		if not tonumber(PlayerFrame.Name) then
+			return
+		end
 
 		local RoleImageFrame = PlayerFrame:FindFirstChild("RoleImage", true)
-		if not RoleImageFrame then return end
+		if not RoleImageFrame then
+			return
+		end
 
 		local Role = GetRoleFromColor(RoleImageFrame.BackgroundColor3)
-		if not Role then return end
+		if not Role then
+			return
+		end
 
 		local UserId = tonumber(PlayerFrame.Name)
 		local Player = game.Players:GetPlayerByUserId(UserId)
-		if not Player then return end
+
+		if not Player then
+			return
+		end
 
 		local Character = Player.Character
 		if Character then
@@ -173,29 +199,54 @@ if Arena and table.find(Ids["Phase0"], tostring(game.PlaceId)) then
 	end
 
 	for _, Screen in ipairs(Workspace.Arena.Screens:GetChildren()) do
+
 		local SurfaceGui = Screen:FindFirstChild("SurfaceGui")
 		local Frame = SurfaceGui and SurfaceGui:FindFirstChild("Frame")
 		local PlayerFrames = Frame and Frame:FindFirstChild("PlayerFrames")
 
 		if PlayerFrames then
-			PlayerFrames.ChildAdded:Connect(OnPlayerFrameAdded)
 
+			PlayerFrames.ChildAdded:Connect(OnPlayerFrameAdded)
 			for _, PlayerFrame in ipairs(PlayerFrames:GetChildren()) do
 				OnPlayerFrameAdded(PlayerFrame)
 			end
 		end
 	end
 
+	local function RescanAllPlayerFrames()
+		for _, Screen in ipairs(Workspace.Arena.Screens:GetChildren()) do
+			local SurfaceGui = Screen:FindFirstChild("SurfaceGui")
+			local Frame = SurfaceGui and SurfaceGui:FindFirstChild("Frame")
+			local PlayerFrames = Frame and Frame:FindFirstChild("PlayerFrames")
+
+			if PlayerFrames then
+				for _, PlayerFrame in ipairs(PlayerFrames:GetChildren()) do
+					OnPlayerFrameAdded(PlayerFrame)
+				end
+			end
+		end
+	end
+
 	local function EnableRoleESP()
-		if Enabled then return end
+
+		if Enabled then
+			return
+		end
+
 		Enabled = true
 		if StatusLabel then
 			StatusLabel:Set("Status : Enabled")
 		end
+
+		RescanAllPlayerFrames()
 	end
 
 	local function DisableRoleESP()
-		if not Enabled then return end
+
+		if not Enabled then
+			return
+		end
+
 		Enabled = false
 		if StatusLabel then
 			StatusLabel:Set("Status : Disabled")
@@ -213,6 +264,7 @@ if Arena and table.find(Ids["Phase0"], tostring(game.PlaceId)) then
 	end
 
 	local function ResetRoles()
+
 		for _, Player in ipairs(game.Players:GetPlayers()) do
 			local Character = Player.Character
 			if Character and Character:FindFirstChild("Head") then
@@ -229,9 +281,16 @@ if Arena and table.find(Ids["Phase0"], tostring(game.PlaceId)) then
 	end
 
 	local InfoText = [[After a round, all roles are revealed. However, the role images are already preloaded. This means if someone stands on a circle, the screen can be scanned to identify their role.]]
-
 	Phase0Tab:CreateLabel("How does this work?")
 	Phase0Tab:CreateLabel(InfoText)
+
+	Phase0Tab:CreateButton({
+		Name = "Rescan Roles",
+		Callback = function()
+			RescanAllPlayerFrames()
+		end
+	})
+
 
 	Phase0Tab:CreateButton({
 		Name = "Reset Roles",
