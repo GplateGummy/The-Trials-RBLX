@@ -283,6 +283,7 @@ if Arena and table.find(Ids["Phase0"], tostring(game.PlaceId)) then
 	local InfoText = [[After a round, all roles are revealed. However, the role images are already preloaded. This means if someone stands on a circle, the screen can be scanned to identify their role.]]
 	Phase0Tab:CreateLabel("How does this work?")
 	Phase0Tab:CreateLabel(InfoText)
+	Phase0Tab:CreateLabel("Also, you must reset roles every round, or it will use the roles from the previous round.")
 
 	Phase0Tab:CreateButton({
 		Name = "Rescan Roles",
