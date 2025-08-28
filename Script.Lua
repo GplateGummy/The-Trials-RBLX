@@ -886,9 +886,7 @@ if TrialParts and tostring(game.PlaceId) == Ids["Phase1"] then
 
 
 	local Section = Phase1Tab:CreateSection("Trial 4 - Outrun The Tiger")
-	local CurrentTigerLabel = Phase1Tab:CreateLabel("Current Tiger: ... (Coming someday)")
-	local CurrentTigerTimeLabel = Phase1Tab:CreateLabel("Current Tiger's Timer: ... (Coming someday)")
-
+	
 	local Enabled = false
 	local StarKeyHighlights = {}
 
